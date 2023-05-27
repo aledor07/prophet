@@ -327,6 +327,7 @@ def performance_metrics(df, metrics=None, rolling_window=0.1, monthly=False):
     'mdape': median absolute percent error
     'smape': symmetric mean absolute percentage error
     'coverage': coverage of the upper and lower intervals
+    'nse': Nash-Sutcliffe efficiency coefficient
 
     A subset of these can be specified by passing a list of names as the
     `metrics` argument.
@@ -362,7 +363,7 @@ def performance_metrics(df, metrics=None, rolling_window=0.1, monthly=False):
     -------
     Dataframe with a column for each metric, and column 'horizon'
     """
-    valid_metrics = ['mse', 'rmse', 'mae', 'mape', 'mdape', 'smape', 'coverage']
+    valid_metrics = ['mse', 'rmse', 'mae', 'mape', 'mdape', 'smape', 'coverage','nse']
     if metrics is None:
         metrics = valid_metrics
     if ('yhat_lower' not in df or 'yhat_upper' not in df) and ('coverage' in metrics):
@@ -646,4 +647,28 @@ def coverage(df, w):
         return pd.DataFrame({'horizon': df['horizon'], 'coverage': is_covered})
     return rolling_mean_by_h(
         x=is_covered.values, h=df['horizon'].values, w=w, name='coverage'
+    )
+
+
+def nse(df, w):
+    """Nash and Sutcliffe Efficiency
+
+    Parameters
+    ----------
+    df: Cross-validation results dataframe.
+    w: Aggregation window size.
+
+    Returns
+    -------
+    Dataframe with columns horizon and mae.
+    """
+    df.yhat[df.yhat.lt(0)] = 0 ## Negative values are converted to 0
+
+    rmse_v= np.sqrt(np.abs(df['y'] - df['yhat']) ** 2)
+    nse_m = 1-(rmse_v/np.std(df['y']))**2
+
+    if w < 0:
+        return pd.DataFrame({'horizon': df['horizon'], 'nse': nse_m})
+    return rolling_mean_by_h(
+        x=nse_m.values, h=df['horizon'].values, w=w, name='nse'
     )
